@@ -16,6 +16,11 @@ def convert_RGB_to_CMYK(img, img_name):
     img_CMYK.save(f"{img_name}_CMYK.pdf", resolution=300.0)
     return img_CMYK
 
+def give_cropped_images(img, padding=150)
+    w, h = img.size
+    new_size = (w + {padding}*2, h + {padding}*2)
+    new_img = Image.new("CMYK", new_size, (0, 0, 0, 0))
+
 def main():
     window = Tk() # i made a window
     window.geometry("800x500")
