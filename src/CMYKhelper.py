@@ -21,13 +21,25 @@ def give_cropped_images(img, padding=150):
     new_img = Image.new("CMYK", new_size, (0, 0, 0, 0))
     new_img.paste(img.convert("CMYK"), (padding, padding))
 
-def apply_halftone(img, dot_size, angle):
+def halftone_one_channel(channel_img, img_name, cell_size, grid_angle_degrees):
+    image_width, image_height = channel_img.size
+    output_image = Image.new("L", (image_width, image_height), 255)
+    
+    image_center_x = image_width / 2
+    image_center_y = image_height / 2
+
+def halftone_image(img, img_name, cell_size):
     img_CMYK = img.convert("CMYK")
     cyan, magenta, yellow, key = img_CMYK.split()
-    cyan_halftone.save("cyan_halftone.pdf", resolution=300.0)
-    magenta_halftone.save("magenta_halftone.pdf", resolution=300.0)
-    yellow_halftone.save("yellow_halftone.pdf", resolution=300.0)
-    key_halftone.save("key_halftone.pdf", resolution=300.0)
+    cyan_halftone = halftone_one_channel(cyan, f"{img_name}_cyan", cell_size, 15)
+    magenta_halftone = halftone_one_channel(magenta, f"{img_name}_magenta", cell_size, 75)
+    yellow_halftone = halftone_one_channel(yellow, f"{img_name}_yellow", cell_size, 0)
+    key_halftone = halftone_one_channel(key, f"{img_name}_key", cell_size, 45)
+
+    cyan_halftone.save(f"{img_name}_cyan_halftone.pdf", resolution=300.0)
+    magenta_halftone.save(f"{img_name}_magenta_halftone.pdf", resolution=300.0)
+    yellow_halftone.save(f"{img_name}_yellow_halftone.pdf", resolution=300.0)
+    key_halftone.save(f"{img_name}_key_halftone.pdf", resolution=300.0)
 
 def main():
     window = Tk() # i made a window
