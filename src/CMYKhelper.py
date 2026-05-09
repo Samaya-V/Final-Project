@@ -31,7 +31,7 @@ def give_cropped_images(img, padding=150):
     new_img.paste(img.convert("CMYK"), (padding, padding))
 
 def halftone_whole_image(img, img_name, cell_size):
-    cyan, magenta, yellow, key = img_CMYK.split()
+    cyan, magenta, yellow, key = img.split()
     cyan_halftone = halftone_one_channel(cyan, cell_size, 15)
     magenta_halftone = halftone_one_channel(magenta, cell_size, 75)
     yellow_halftone = halftone_one_channel(yellow, cell_size, 0)
@@ -92,7 +92,7 @@ def halftone_one_channel(channel_img, cell_size, grid_angle_degrees):
                         output_pixels[px, py] = 255
     return output_image
 
-def process_images(selected_images, add_cropmarks=False, add_halftones=False, split_channels=False):
+def process_images(selected_images, add_cropmarks=False, add_halftones=False, split_channels=False, cell_size=10):
     for img_path in selected_images:
         img_name = img_path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
         img = Image.open(img_path)
@@ -137,6 +137,8 @@ def main():
     frame.pack(padx=0, pady=50)
     selected_images = []
 
+    # empty shit for now
+    cell_size = 10
     no_imgs_label = Label(frame, text="", bg="skyblue")
     no_imgs_label.pack()
 
@@ -173,19 +175,25 @@ def main():
             upload_button = Button(frame, text="Upload Images", command=store_images)
         upload_button.pack(pady=30)
 
-        # the options
+    upload_button = Button(frame, text="Upload Images", command=store_images)
+    upload_button.pack(pady=30)
+    
+    # the options
     whether_to_cropmark_var = IntVar()
     whether_to_halftone_var = IntVar()
     whether_to_split_var = IntVar()
     cropmark_checkbox = Checkbutton(frame, bg="skyblue", text="Add Crop Marks", variable=whether_to_cropmark_var)
+    
     halftone_checkbox = Checkbutton(frame, bg="skyblue", text="Halftone", variable=whether_to_halftone_var)
+    halftone_size_entry = Entry(frame)
+    halftone_size_entry.insert(0, "10")
+
     split_checkbox = Checkbutton(frame, bg="skyblue", text="Split into Channels", variable=whether_to_split_var)
 
     cropmark_checkbox.pack(anchor=W)
     halftone_checkbox.pack(anchor=W)
     split_checkbox.pack(anchor=W)
 
-        
     go_button = Button(frame, text="Go", command=lambda: (
         decide_whether_to_go(
             selected_images,
@@ -196,9 +204,10 @@ def main():
             selected_images,
             add_cropmarks=bool(whether_to_cropmark_var.get()),
             add_halftones=bool(whether_to_halftone_var.get()),
-            split_channels=bool(whether_to_split_var.get())
-        )
+            split_channels=bool(whether_to_split_var.get()), cell_size=cell_size)
     ))
+    go_button.pack(pady=10)
+    window.mainloop() # i can open it now. im scared.
 
 if __name__ == "__main__":
     main()
