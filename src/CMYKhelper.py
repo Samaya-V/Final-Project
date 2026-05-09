@@ -1,5 +1,6 @@
 from tkinter import *
 from tkinter import filedialog
+from tkinter import font
 from PIL import Image
 import math
 
@@ -11,6 +12,13 @@ def get_split_image_into_channels(img, img_name):
     yellow.save(f"{img_name}_yellow.pdf)", resolution=300.0)
     key.save(f"{img_name}_key.pdf)", resolution=300.0)
 
+def give_cropmarked_images(img, padding=150):
+    w, h = img.size
+    new_size = (w + padding*2, h + padding*2)
+    new_img = Image.new("CMYK", new_size, (0, 0, 0, 0))
+    new_img.paste(img.convert("CMYK"), (padding, padding))
+    return new_img
+
 def convert_RGB_to_CMYK(img, img_name):
     img_CMYK = img.convert("CMYK")
     img_CMYK.save(f"{img_name}_CMYK.pdf", resolution=300.0)
@@ -21,6 +29,23 @@ def give_cropped_images(img, padding=150):
     new_size = (w + {padding}*2, h + {padding}*2)
     new_img = Image.new("CMYK", new_size, (0, 0, 0, 0))
     new_img.paste(img.convert("CMYK"), (padding, padding))
+
+def halftone_whole_image(img, img_name, cell_size):
+    cyan, magenta, yellow, key = img_CMYK.split()
+    cyan_halftone = halftone_one_channel(cyan, cell_size, 15)
+    magenta_halftone = halftone_one_channel(magenta, cell_size, 75)
+    yellow_halftone = halftone_one_channel(yellow, cell_size, 0)
+    key_halftone = halftone_one_channel(key, cell_size, 45)
+    merged = Image.merge(
+        "CMYK",
+        (
+            cyan_halftone,
+            magenta_halftone,
+            yellow_halftone,
+            key_halftone
+        )
+    )
+    merged.save(f"{img_name}_halftone.pdf", resolution=300.0)
 
 def halftone_one_channel(channel_img, cell_size, grid_angle_degrees):
     image_width, image_height = channel_img.size
@@ -68,15 +93,42 @@ def halftone_one_channel(channel_img, cell_size, grid_angle_degrees):
     return output_image
 
 def process_images(selected_images, add_cropmarks=False, add_halftones=False, split_channels=False):
-    # uhhh uhhh whats the order here. um.
-    # first we make sure there is a selection. actually dat happens in decide whether to go. 
-    # cmyk version, split channels, crop marks, halftones
-    # how do i make sure that once images are split i use split images for everything
     for img_path in selected_images:
-        # hi
-        print("im so hungry right now...")
-    pass
+        img_name = img_path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+        img = Image.open(img_path)
+        img_CMYK = img.convert("CMYK")
 
+        processed_img = img_CMYK
+
+        if split_channels:
+            cyan, magenta, yellow, key = get_split_image_into_channels(img_CMYK, img_name)
+            cyan.save(f"{img_name}_cyan.pdf", resolution=300.0)
+            magenta.save(f"{img_name}_magenta.pdf", resolution=300.0)
+            yellow.save(f"{img_name}_yellow.pdf", resolution=300.0)
+            key.save(f"{img_name}_key.pdf", resolution=300.0)
+        
+        if add_cropmarks:
+            if not split_channels:
+                processed_img = give_cropmarked_images(processed_img)
+                processed_img.save(f"{img_name}_CMYK_coprmarked.pdf", resolution=300.0)
+            else:
+                cyan = give_cropmarked_images(cyan)
+                magenta = give_cropmarked_images(magenta)
+                yellow = give_cropmarked_images(yellow)
+                key = give_cropmarked_images(key)
+                cyan.save(f"{img_name}_cyan_cropmarked.pdf", resolution=300.0)
+                magenta.save(f"{img_name}_magenta_cropmarked.pdf", resolution=300.0)
+                yellow.save(f"{img_name}_yellow_cropmarked.pdf", resolution=300.0)
+                key.save(f"{img_name}_key_cropmarked.pdf", resolution=300.0)
+        if add_halftones:
+            if not split_channels:
+                halftoned_img = halftone_whole_image(processed_img, img_name, cell_size)
+            else:
+                cyan_halftone = halftone_one_channel(cyan, cell_size, 15)
+                magenta_halftone = halftone_one_channel(magenta, cell_size, 75)
+                yellow_halftone = halftone_one_channel(yellow, cell_size, 0)
+                key_halftone = halftone_one_channel(key, cell_size, 45)
+    
 def main():
     window = Tk() # i made a window
     window.geometry("800x500")
