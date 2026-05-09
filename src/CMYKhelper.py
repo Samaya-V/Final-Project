@@ -67,6 +67,16 @@ def halftone_one_channel(channel_img, cell_size, grid_angle_degrees):
                         output_pixels[px, py] = 255
     return output_image
 
+def process_images(selected_images, add_cropmarks=False, add_halftones=False, split_channels=False):
+    # uhhh uhhh whats the order here. um.
+    # first we make sure there is a selection. actually dat happens in decide whether to go. 
+    # cmyk version, split channels, crop marks, halftones
+    # how do i make sure that once images are split i use split images for everything
+    for img_path in selected_images:
+        # hi
+        print("im so hungry right now...")
+    pass
+
 def main():
     window = Tk() # i made a window
     window.geometry("800x500")
@@ -112,16 +122,31 @@ def main():
         upload_button.pack(pady=30)
 
         # the options
-        whether_to_cropmark_var = IntVar()
-        whether_to_halftone_var = IntVar()
-        whether_to_split_var = IntVar()
-        cropmark_checkbox = Checkbutton(frame, bg="skyblue", text="Add Crop Marks", variable=whether_to_cropmark_var)
-        halftone_checkbox = Checkbutton(frame, bg="skyblue", text="Halftone", variable=whether_to_halftone_var)
-        split_checkbox = Checkbutton(frame, bg="skyblue", text="Split into Channels", variable=whether_to_split_var)
+    whether_to_cropmark_var = IntVar()
+    whether_to_halftone_var = IntVar()
+    whether_to_split_var = IntVar()
+    cropmark_checkbox = Checkbutton(frame, bg="skyblue", text="Add Crop Marks", variable=whether_to_cropmark_var)
+    halftone_checkbox = Checkbutton(frame, bg="skyblue", text="Halftone", variable=whether_to_halftone_var)
+    split_checkbox = Checkbutton(frame, bg="skyblue", text="Split into Channels", variable=whether_to_split_var)
 
-        cropmark_checkbox.pack(anchor=W)
-        halftone_checkbox.pack(anchor=W)
-        split_checkbox.pack(anchor=W)
+    cropmark_checkbox.pack(anchor=W)
+    halftone_checkbox.pack(anchor=W)
+    split_checkbox.pack(anchor=W)
+
+        
+    go_button = Button(frame, text="Go", command=lambda: (
+        decide_whether_to_go(
+            selected_images,
+            bool(whether_to_cropmark_var.get()),
+            bool(whether_to_halftone_var.get()),
+            bool(whether_to_split_var.get())
+        ) and process_images(
+            selected_images,
+            add_cropmarks=bool(whether_to_cropmark_var.get()),
+            add_halftones=bool(whether_to_halftone_var.get()),
+            split_channels=bool(whether_to_split_var.get())
+        )
+    ))
 
 if __name__ == "__main__":
     main()
