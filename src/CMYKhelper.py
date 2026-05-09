@@ -1,6 +1,7 @@
 from tkinter import *
-from tkinter import ttk
+from tkinter import filedialog
 from PIL import Image
+import math
 
 def get_split_image_into_channels(img, img_name):
     img_CMYK = img.convert("CMYK")
@@ -21,13 +22,6 @@ def give_cropped_images(img, padding=150):
     new_img = Image.new("CMYK", new_size, (0, 0, 0, 0))
     new_img.paste(img.convert("CMYK"), (padding, padding))
 
-def halftone_one_channel(channel_img, img_name, cell_size, grid_angle_degrees):
-    image_width, image_height = channel_img.size
-    output_image = Image.new("L", (image_width, image_height), 255)
-    
-    image_center_x = image_width / 2
-    image_center_y = image_height / 2
-
 def halftone_one_channel(channel_img, cell_size, grid_angle_degrees):
     image_width, image_height = channel_img.size
     output_image = Image.new("L", (image_width, image_height), 255)
@@ -35,7 +29,6 @@ def halftone_one_channel(channel_img, cell_size, grid_angle_degrees):
     angle_rad = math.radians(grid_angle_degrees)
     cos_a = math.cos(angle_rad)
     sin_a = math.sin(angle_rad)
-    
 
     pixels = channel_img.load()
     output_pixels = output_image.load()
@@ -72,14 +65,63 @@ def halftone_one_channel(channel_img, cell_size, grid_angle_degrees):
                         output_pixels[px, py] = 0
                     else:
                         output_pixels[px, py] = 255
-    
     return output_image
 
 def main():
     window = Tk() # i made a window
     window.geometry("800x500")
     window.title("CMYK Helper :D")
-    window.mainloop() # i can open it now. im scared.
+    frame = Frame(window, bg="skyblue", width=750, height=450)
+    frame.pack(padx=0, pady=50)
+    selected_images = []
+
+    no_imgs_label = Label(frame, text="", bg="skyblue")
+    no_imgs_label.pack()
+
+    def if_nothing_selected():
+        
+        if not selected_images:
+            no_imgs_label.config(text="No images selected.")
+        else:
+            no_imgs_label.config(text=f"{len(selected_images)} images selected.")
+    
+    def no_options_selected():
+        no_imgs_label.config(text="No processing options selected. Please choose at least one option.")
+
+    def decide_whether_to_go(selected_images, add_cropmarks, add_halftones, split_channels):
+        if not selected_images:
+            if_nothing_selected()
+            return False
+        if not (add_cropmarks or add_halftones or split_channels):
+            no_options_selected()
+            return False
+        return True
+
+    def store_images():
+        nonlocal selected_images
+        files = filedialog.askopenfilenames(title="Select images to process",
+                filetypes=[("Image files", "*.jpg *.jpeg *.png")])
+        if files:
+            selected_images = list(files)
+            no_imgs_label.config(text=f"{len(selected_images)} image(s) selected.")
+        else:
+            selected_images = []
+            no_imgs_label.config(text="No images selected.")
+        
+            upload_button = Button(frame, text="Upload Images", command=store_images)
+        upload_button.pack(pady=30)
+
+        # the options
+        whether_to_cropmark_var = IntVar()
+        whether_to_halftone_var = IntVar()
+        whether_to_split_var = IntVar()
+        cropmark_checkbox = Checkbutton(frame, bg="skyblue", text="Add Crop Marks", variable=whether_to_cropmark_var)
+        halftone_checkbox = Checkbutton(frame, bg="skyblue", text="Halftone", variable=whether_to_halftone_var)
+        split_checkbox = Checkbutton(frame, bg="skyblue", text="Split into Channels", variable=whether_to_split_var)
+
+        cropmark_checkbox.pack(anchor=W)
+        halftone_checkbox.pack(anchor=W)
+        split_checkbox.pack(anchor=W)
 
 if __name__ == "__main__":
     main()
