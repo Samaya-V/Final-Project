@@ -1,7 +1,7 @@
 from tkinter import *
 from tkinter import filedialog
 from tkinter import font
-from PIL import Image
+from PIL import Image, ImageDraw
 import math
 
 def get_split_image_into_channels(img):
@@ -14,13 +14,33 @@ def give_cropmarked_images(img, padding=150):
     new_size = (w + padding*2, h + padding*2)
     new_img = Image.new("CMYK", new_size, (0, 0, 0, 0))
     new_img.paste(img.convert("CMYK"), (padding, padding))
-    return new_img
 
-def give_cropped_images(img, padding=150):
-    w, h = img.size
-    new_size = (w + {padding}*2, h + {padding}*2)
-    new_img = Image.new("CMYK", new_size, (0, 0, 0, 0))
-    new_img.paste(img.convert("CMYK"), (padding, padding))
+    draw = ImageDraw.Draw(new_img)
+    black = (0, 0, 0, 255)
+
+    corners = [
+        (padding, padding),           # top left
+        (padding + w, padding),       # top right
+        (padding, padding + h),       # bottom left
+        (padding + w, padding + h),   # bottom right
+    ]
+
+    for cx, cy in corners:
+        mark_thickness = 3
+        mark_length = 50
+        dx = -1 if cx == padding else 1
+        draw.line(
+            [(cx, cy), (cx + dx * mark_thickness, cy)],
+            fill=black, width=mark_thickness
+        )
+
+        dy = -1 if cy == padding else 1
+        draw.line(
+            [(cx, cy), (cx, cy + dy * mark_length)],
+            fill=black, width=mark_length
+        )
+    
+    return new_img
 
 def halftone_whole_image(img, img_name, cell_size):
     cyan, magenta, yellow, key = img.split()
@@ -102,7 +122,8 @@ def process_images(selected_images, add_cropmarks=False, add_halftones=False, sp
         if add_cropmarks:
             if not split_channels:
                 processed_img = give_cropmarked_images(processed_img)
-                processed_img.save(f"{img_name}_CMYK_cropmarked.pdf", resolution=300.0)
+                if not add_halftones:
+                    processed_img.save(f"{img_name}_CMYK_cropmarked.pdf", resolution=300.0)
             else:
                 cyan = give_cropmarked_images(cyan)
                 magenta = give_cropmarked_images(magenta)
@@ -121,7 +142,11 @@ def process_images(selected_images, add_cropmarks=False, add_halftones=False, sp
                 magenta_halftone = halftone_one_channel(magenta, cell_size, 75)
                 yellow_halftone = halftone_one_channel(yellow, cell_size, 0)
                 key_halftone = halftone_one_channel(key, cell_size, 45)
-    
+                cyan_halftone.save(f"{img_name}_cyan_halftoned.pdf", resolution=300.0)
+                magenta_halftone.save(f"{img_name}_magenta_halftoned.pdf", resolution=300.0)
+                yellow_halftone.save(f"{img_name}_yellow_halftoned.pdf", resolution=300.0)
+                key_halftone.save(f"{img_name}_key_halftoned.pdf", resolution=300.0)
+
 def main():
     window = Tk() # i made a window
     window.geometry("800x500")
@@ -165,9 +190,6 @@ def main():
             selected_images = []
             no_imgs_label.config(text="No images selected.")
         
-    upload_button = Button(frame, text="Upload Images", command=store_images)
-    upload_button.pack(pady=30)
-
     upload_button = Button(frame, text="Upload Images", command=store_images)
     upload_button.pack(pady=30)
     
