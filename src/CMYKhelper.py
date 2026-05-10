@@ -4,13 +4,10 @@ from tkinter import font
 from PIL import Image
 import math
 
-def get_split_image_into_channels(img, img_name):
+def get_split_image_into_channels(img):
     img_CMYK = img.convert("CMYK")
     cyan, magenta, yellow, key = img_CMYK.split()
-    cyan.save(f"{img_name}_cyan.pdf", resolution=300.0)
-    magenta.save(f"{img_name}_magenta.pdf)", resolution=300.0)
-    yellow.save(f"{img_name}_yellow.pdf)", resolution=300.0)
-    key.save(f"{img_name}_key.pdf)", resolution=300.0)
+    return cyan, magenta, yellow, key
 
 def give_cropmarked_images(img, padding=150):
     w, h = img.size
@@ -18,11 +15,6 @@ def give_cropmarked_images(img, padding=150):
     new_img = Image.new("CMYK", new_size, (0, 0, 0, 0))
     new_img.paste(img.convert("CMYK"), (padding, padding))
     return new_img
-
-def convert_RGB_to_CMYK(img, img_name):
-    img_CMYK = img.convert("CMYK")
-    img_CMYK.save(f"{img_name}_CMYK.pdf", resolution=300.0)
-    return img_CMYK
 
 def give_cropped_images(img, padding=150):
     w, h = img.size
@@ -45,7 +37,7 @@ def halftone_whole_image(img, img_name, cell_size):
             key_halftone
         )
     )
-    merged.save(f"{img_name}_halftone.pdf", resolution=300.0)
+    return merged
 
 def halftone_one_channel(channel_img, cell_size, grid_angle_degrees):
     image_width, image_height = channel_img.size
@@ -101,7 +93,7 @@ def process_images(selected_images, add_cropmarks=False, add_halftones=False, sp
         processed_img = img_CMYK
 
         if split_channels:
-            cyan, magenta, yellow, key = get_split_image_into_channels(img_CMYK, img_name)
+            cyan, magenta, yellow, key = get_split_image_into_channels(img_CMYK)
             cyan.save(f"{img_name}_cyan.pdf", resolution=300.0)
             magenta.save(f"{img_name}_magenta.pdf", resolution=300.0)
             yellow.save(f"{img_name}_yellow.pdf", resolution=300.0)
@@ -110,7 +102,7 @@ def process_images(selected_images, add_cropmarks=False, add_halftones=False, sp
         if add_cropmarks:
             if not split_channels:
                 processed_img = give_cropmarked_images(processed_img)
-                processed_img.save(f"{img_name}_CMYK_coprmarked.pdf", resolution=300.0)
+                processed_img.save(f"{img_name}_CMYK_cropmarked.pdf", resolution=300.0)
             else:
                 cyan = give_cropmarked_images(cyan)
                 magenta = give_cropmarked_images(magenta)
@@ -123,6 +115,7 @@ def process_images(selected_images, add_cropmarks=False, add_halftones=False, sp
         if add_halftones:
             if not split_channels:
                 halftoned_img = halftone_whole_image(processed_img, img_name, cell_size)
+                halftoned_img.save(f"{img_name}_CMYK_halftoned.pdf", resolution=300.0)
             else:
                 cyan_halftone = halftone_one_channel(cyan, cell_size, 15)
                 magenta_halftone = halftone_one_channel(magenta, cell_size, 75)
@@ -172,8 +165,8 @@ def main():
             selected_images = []
             no_imgs_label.config(text="No images selected.")
         
-            upload_button = Button(frame, text="Upload Images", command=store_images)
-        upload_button.pack(pady=30)
+    upload_button = Button(frame, text="Upload Images", command=store_images)
+    upload_button.pack(pady=30)
 
     upload_button = Button(frame, text="Upload Images", command=store_images)
     upload_button.pack(pady=30)
