@@ -3,6 +3,7 @@ from tkinter import filedialog
 from tkinter import font
 from PIL import Image, ImageDraw
 import math
+import numpy as np
 
 def get_split_image_into_channels(img):
     img_CMYK = img.convert("CMYK")
@@ -60,49 +61,35 @@ def halftone_whole_image(img, img_name, cell_size):
     return merged
 
 def halftone_one_channel(channel_img, cell_size, grid_angle_degrees):
+
     image_width, image_height = channel_img.size
-    output_image = Image.new("L", (image_width, image_height), 255)
-    
+    # switched to numpy for array &faster processing 
+    img_array = np.array(channel_img, dtype=np.float32)
+    output = np.ones((image_height, image_width), dtype=np.float32)
+
     angle_rad = math.radians(grid_angle_degrees)
     cos_a = math.cos(angle_rad)
     sin_a = math.sin(angle_rad)
 
-    pixels = channel_img.load()
-    output_pixels = output_image.load()
+    cell_range = np.arange(cell_size)
+    dx_grid, dy_grid = np.meshgrid(cell_range - cell_size / 2.0, cell_range - cell_size / 2.0)
+
+    # stupid sin cos rotation for dist calc
+    rot_x = dx_grid * cos_a - dy_grid * sin_a
+    rot_y = dx_grid * sin_a + dy_grid * cos_a
+    dist_grid = np.sqrt(rot_x**2 + rot_y**2) # no loops needed. grid of distance from cell center for each pixel
+    # determines whether to draw dot or nah
 
     for y in range(0, image_height, cell_size):
         for x in range(0, image_width, cell_size):
-            cell_sum = 0
-            cell_count = 0
-            for dy in range(cell_size):
-                for dx in range(cell_size):
-                    px = min(x + dx, image_width - 1)
-                    py = min(y + dy, image_height - 1)
-                    cell_sum += pixels[px, py]
-                    cell_count += 1
-            
-            avg_intensity = cell_sum / cell_count
-            dot_radius = (avg_intensity / 255.0) * (cell_size / 2.0)
-            
-            cell_center_x = x + cell_size / 2
-            cell_center_y = y + cell_size / 2
-            for dy in range(cell_size):
-                for dx in range(cell_size):
-                    px = min(x + dx, image_width - 1)
-                    py = min(y + dy, image_height - 1)
-                    
-                    rel_x = (dx - cell_size / 2.0)
-                    rel_y = (dy - cell_size / 2.0)
-                    rot_x = rel_x * cos_a - rel_y * sin_a
-                    rot_y = rel_x * sin_a + rel_y * cos_a
-                    
-                    dist = math.sqrt(rot_x**2 + rot_y**2)
-                    
-                    if dist <= dot_radius:
-                        output_pixels[px, py] = 0
-                    else:
-                        output_pixels[px, py] = 255
-    return output_image
+            cell = img_array[y:y+cell_size, x:x+cell_size]
+            avg_intensity = cell.mean()
+            dot_radius = (1.0 - avg_intensity / 255.0) * (cell_size / 2.0)
+
+            cell_h, cell_w = cell.shape
+            dot_mask = dist_grid[:cell_h, :cell_w] <= dot_radius
+            output[y:y+cell_size, x:x+cell_size] = np.where(dot_mask, 0.0, 1.0)
+    return Image.fromarray((output * 255).astype(np.uint8), mode="L")
 
 def process_images(selected_images, add_cropmarks=False, add_halftones=False, split_channels=False, cell_size=10):
     for img_path in selected_images:
@@ -114,10 +101,11 @@ def process_images(selected_images, add_cropmarks=False, add_halftones=False, sp
 
         if split_channels:
             cyan, magenta, yellow, key = get_split_image_into_channels(img_CMYK)
-            cyan.save(f"{img_name}_cyan.pdf", resolution=300.0)
-            magenta.save(f"{img_name}_magenta.pdf", resolution=300.0)
-            yellow.save(f"{img_name}_yellow.pdf", resolution=300.0)
-            key.save(f"{img_name}_key.pdf", resolution=300.0)
+            if not add_cropmarks and not add_halftones:
+                cyan.save(f"{img_name}_cyan.pdf", resolution=300.0)
+                magenta.save(f"{img_name}_magenta.pdf", resolution=300.0)
+                yellow.save(f"{img_name}_yellow.pdf", resolution=300.0)
+                key.save(f"{img_name}_key.pdf", resolution=300.0)
         
         if add_cropmarks:
             if not split_channels:
@@ -159,26 +147,19 @@ def main():
     cell_size = 10
     no_imgs_label = Label(frame, text="", bg="skyblue")
     no_imgs_label.pack()
-
-    def if_nothing_selected():
-        
-        if not selected_images:
-            no_imgs_label.config(text="No images selected.")
-        else:
-            no_imgs_label.config(text=f"{len(selected_images)} images selected.")
     
     def no_options_selected():
         no_imgs_label.config(text="No processing options selected. Please choose at least one option.")
 
     def decide_whether_to_go(selected_images, add_cropmarks, add_halftones, split_channels):
         if not selected_images:
-            if_nothing_selected()
+            no_imgs_label.config(text="No images selected.")
             return False
-        if not (add_cropmarks or add_halftones or split_channels):
+        elif not (add_cropmarks or add_halftones or split_channels):
             no_options_selected()
             return False
-        return True
-
+        else:
+            return True
     def store_images():
         nonlocal selected_images
         files = filedialog.askopenfilenames(title="Select images to process",
