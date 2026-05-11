@@ -31,19 +31,19 @@ def give_cropmarked_images(img, padding=150):
         mark_length = 50
         dx = -1 if cx == padding else 1
         draw.line(
-            [(cx, cy), (cx + dx * mark_thickness, cy)],
+            [(cx, cy), (cx + dx * mark_length, cy)],
             fill=black, width=mark_thickness
         )
 
         dy = -1 if cy == padding else 1
         draw.line(
             [(cx, cy), (cx, cy + dy * mark_length)],
-            fill=black, width=mark_length
+            fill=black, width=mark_thickness
         )
     
     return new_img
 
-def halftone_whole_image(img, img_name, cell_size):
+def halftone_whole_image(img, cell_size):
     cyan, magenta, yellow, key = img.split()
     cyan_halftone = halftone_one_channel(cyan, cell_size, 15)
     magenta_halftone = halftone_one_channel(magenta, cell_size, 75)
@@ -117,23 +117,31 @@ def process_images(selected_images, add_cropmarks=False, add_halftones=False, sp
                 magenta = give_cropmarked_images(magenta)
                 yellow = give_cropmarked_images(yellow)
                 key = give_cropmarked_images(key)
-                cyan.save(f"{img_name}_cyan_cropmarked.pdf", resolution=300.0)
-                magenta.save(f"{img_name}_magenta_cropmarked.pdf", resolution=300.0)
-                yellow.save(f"{img_name}_yellow_cropmarked.pdf", resolution=300.0)
-                key.save(f"{img_name}_key_cropmarked.pdf", resolution=300.0)
+                if not add_halftones:
+                    cyan.save(f"{img_name}_cyan_cropmarked.pdf", resolution=300.0)
+                    magenta.save(f"{img_name}_magenta_cropmarked.pdf", resolution=300.0)
+                    yellow.save(f"{img_name}_yellow_cropmarked.pdf", resolution=300.0)
+                    key.save(f"{img_name}_key_cropmarked.pdf", resolution=300.0)
         if add_halftones:
             if not split_channels:
-                halftoned_img = halftone_whole_image(processed_img, img_name, cell_size)
+                halftoned_img = halftone_whole_image(processed_img, cell_size)
                 halftoned_img.save(f"{img_name}_CMYK_halftoned.pdf", resolution=300.0)
             else:
                 cyan_halftone = halftone_one_channel(cyan, cell_size, 15)
                 magenta_halftone = halftone_one_channel(magenta, cell_size, 75)
                 yellow_halftone = halftone_one_channel(yellow, cell_size, 0)
                 key_halftone = halftone_one_channel(key, cell_size, 45)
-                cyan_halftone.save(f"{img_name}_cyan_halftoned.pdf", resolution=300.0)
-                magenta_halftone.save(f"{img_name}_magenta_halftoned.pdf", resolution=300.0)
-                yellow_halftone.save(f"{img_name}_yellow_halftoned.pdf", resolution=300.0)
-                key_halftone.save(f"{img_name}_key_halftoned.pdf", resolution=300.0)
+                if add_cropmarks:
+                    cyan_halftone.save(f"{img_name}_cyan_cropmarked_halftoned.pdf", resolution=300.0)
+                    magenta_halftone.save(f"{img_name}_magenta_cropmarked_halftoned.pdf", resolution=300.0)
+                    yellow_halftone.save(f"{img_name}_yellow_cropmarked_halftoned.pdf", resolution=300.0)
+                    key_halftone.save(f"{img_name}_key_cropmarked_halftoned.pdf", resolution=300.0)
+                else:
+                    cyan_halftone.save(f"{img_name}_cyan_halftoned.pdf", resolution=300.0)
+                    magenta_halftone.save(f"{img_name}_magenta_halftoned.pdf", resolution=300.0)
+                    yellow_halftone.save(f"{img_name}_yellow_halftoned.pdf", resolution=300.0)
+                    key_halftone.save(f"{img_name}_key_halftoned.pdf", resolution=300.0)
+
 
 def main():
     window = Tk() # i made a window
@@ -143,8 +151,7 @@ def main():
     frame.pack(padx=0, pady=50)
     selected_images = []
 
-    # empty shit for now
-    cell_size = 10
+
     no_imgs_label = Label(frame, text="", bg="skyblue")
     no_imgs_label.pack()
     
@@ -160,6 +167,26 @@ def main():
             return False
         else:
             return True
+        
+    def on_go():
+        try:
+            cell_size = int(halftone_size_entry.get()) if whether_to_halftone_var.get() else 10
+        except ValueError:
+            cell_size = 10
+        no_imgs_label.config(text="Invalid cell size, using default of 10.")
+        decide_whether_to_go(
+            selected_images,
+            bool(whether_to_cropmark_var.get()),
+            bool(whether_to_halftone_var.get()),
+            bool(whether_to_split_var.get())
+        ) and process_images(
+            selected_images,
+            add_cropmarks=bool(whether_to_cropmark_var.get()),
+            add_halftones=bool(whether_to_halftone_var.get()),
+            split_channels=bool(whether_to_split_var.get()),
+            cell_size=cell_size
+        )
+
     def store_images():
         nonlocal selected_images
         files = filedialog.askopenfilenames(title="Select images to process",
@@ -184,24 +211,21 @@ def main():
     halftone_size_entry = Entry(frame)
     halftone_size_entry.insert(0, "10")
 
+    def toggle_halftone_entry(*args):
+        if whether_to_halftone_var.get():
+            halftone_size_entry.pack(anchor=W, after=halftone_checkbox)
+        else:
+            halftone_size_entry.pack_forget()
+
+    whether_to_halftone_var.trace_add("write", toggle_halftone_entry)
+
     split_checkbox = Checkbutton(frame, bg="skyblue", text="Split into Channels", variable=whether_to_split_var)
 
     cropmark_checkbox.pack(anchor=W)
     halftone_checkbox.pack(anchor=W)
     split_checkbox.pack(anchor=W)
 
-    go_button = Button(frame, text="Go", command=lambda: (
-        decide_whether_to_go(
-            selected_images,
-            bool(whether_to_cropmark_var.get()),
-            bool(whether_to_halftone_var.get()),
-            bool(whether_to_split_var.get())
-        ) and process_images(
-            selected_images,
-            add_cropmarks=bool(whether_to_cropmark_var.get()),
-            add_halftones=bool(whether_to_halftone_var.get()),
-            split_channels=bool(whether_to_split_var.get()), cell_size=cell_size)
-    ))
+    go_button = Button(frame, text="Go", command=on_go)
     go_button.pack(pady=10)
     window.mainloop() # i can open it now. im scared.
 
