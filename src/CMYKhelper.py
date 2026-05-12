@@ -125,13 +125,25 @@ def process_images(selected_images, add_cropmarks=False, add_halftones=False, sp
             suffix += "_cropmarked"
         if add_halftones:
             suffix += "_halftoned"
-
         if split_channels:
-            channels = (cyan_halftone, magenta_halftone, yellow_halftone, key_halftone) if add_halftones else (cyan, magenta, yellow, key)
+            if add_halftones:
+                channels = (
+                    cyan_halftone,
+                    magenta_halftone,
+                    yellow_halftone,
+                    key_halftone
+                )
+            else:
+                channels = (cyan, magenta, yellow, key)
+
             for channel, name in zip(channels, ("cyan", "magenta", "yellow", "key")):
-                channel.save(f"{img_name}_{name}{suffix}.pdf", resolution=300.0)
+                filename = f"{img_name}_{name}{suffix}.pdf"
+                print("Saving:", filename)
+                channel.save(filename, resolution=300.0)
         else:
-            processed_img.save(f"{img_name}_CMYK{suffix}.pdf", resolution=300.0)
+            filename = f"{img_name}_CMYK{suffix}.pdf"
+            print("Saving:", filename)
+            processed_img.save(filename, resolution=300.0)
             
 def main():
     window = Tk()
@@ -169,7 +181,7 @@ def main():
         
     def on_go():
         try:
-            cell_size = int(halftone_size_entry.get()) if whether_to_halftone_var.get() else 10
+            cell_size = max(1, int(halftone_size_entry.get())) if whether_to_halftone_var.get() else 10
         except ValueError:
             cell_size = 10
             no_imgs_label.config(text="Invalid cell size, using default of 10.")
