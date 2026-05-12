@@ -1,6 +1,5 @@
 from tkinter import *
 from tkinter import filedialog
-from tkinter import font
 from PIL import Image, ImageDraw
 import math
 import numpy as np
@@ -44,6 +43,7 @@ def give_cropmarked_images(img, padding=150):
     return new_img
 
 def halftone_whole_image(img, cell_size):
+    img = img.convert("CMYK")
     cyan, magenta, yellow, key = img.split()
     cyan_halftone = halftone_one_channel(cyan, cell_size, 15)
     magenta_halftone = halftone_one_channel(magenta, cell_size, 75)
@@ -101,62 +101,61 @@ def process_images(selected_images, add_cropmarks=False, add_halftones=False, sp
 
         if split_channels:
             cyan, magenta, yellow, key = get_split_image_into_channels(img_CMYK)
-            if not add_cropmarks and not add_halftones:
-                cyan.save(f"{img_name}_cyan.pdf", resolution=300.0)
-                magenta.save(f"{img_name}_magenta.pdf", resolution=300.0)
-                yellow.save(f"{img_name}_yellow.pdf", resolution=300.0)
-                key.save(f"{img_name}_key.pdf", resolution=300.0)
-        
+
         if add_cropmarks:
-            if not split_channels:
+            if split_channels:
+                cropmarked = give_cropmarked_images(img_CMYK)
+                cyan, magenta, yellow, key = cropmarked.split()
+            else:
                 processed_img = give_cropmarked_images(processed_img)
-                if not add_halftones:
-                    processed_img.save(f"{img_name}_CMYK_cropmarked.pdf", resolution=300.0)
-            else:
-                cyan = give_cropmarked_images(cyan)
-                magenta = give_cropmarked_images(magenta)
-                yellow = give_cropmarked_images(yellow)
-                key = give_cropmarked_images(key)
-                if not add_halftones:
-                    cyan.save(f"{img_name}_cyan_cropmarked.pdf", resolution=300.0)
-                    magenta.save(f"{img_name}_magenta_cropmarked.pdf", resolution=300.0)
-                    yellow.save(f"{img_name}_yellow_cropmarked.pdf", resolution=300.0)
-                    key.save(f"{img_name}_key_cropmarked.pdf", resolution=300.0)
+
         if add_halftones:
-            if not split_channels:
-                halftoned_img = halftone_whole_image(processed_img, cell_size)
-                halftoned_img.save(f"{img_name}_CMYK_halftoned.pdf", resolution=300.0)
-            else:
+            if split_channels:
                 cyan_halftone = halftone_one_channel(cyan, cell_size, 15)
                 magenta_halftone = halftone_one_channel(magenta, cell_size, 75)
                 yellow_halftone = halftone_one_channel(yellow, cell_size, 0)
                 key_halftone = halftone_one_channel(key, cell_size, 45)
-                if add_cropmarks:
-                    cyan_halftone.save(f"{img_name}_cyan_cropmarked_halftoned.pdf", resolution=300.0)
-                    magenta_halftone.save(f"{img_name}_magenta_cropmarked_halftoned.pdf", resolution=300.0)
-                    yellow_halftone.save(f"{img_name}_yellow_cropmarked_halftoned.pdf", resolution=300.0)
-                    key_halftone.save(f"{img_name}_key_cropmarked_halftoned.pdf", resolution=300.0)
-                else:
-                    cyan_halftone.save(f"{img_name}_cyan_halftoned.pdf", resolution=300.0)
-                    magenta_halftone.save(f"{img_name}_magenta_halftoned.pdf", resolution=300.0)
-                    yellow_halftone.save(f"{img_name}_yellow_halftoned.pdf", resolution=300.0)
-                    key_halftone.save(f"{img_name}_key_halftoned.pdf", resolution=300.0)
+            else:
+                processed_img = halftone_whole_image(processed_img, cell_size)
 
+        # a less chopped save system
 
+        suffix = ""
+        if add_cropmarks:
+            suffix += "_cropmarked"
+        if add_halftones:
+            suffix += "_halftoned"
+
+        if split_channels:
+            channels = (cyan_halftone, magenta_halftone, yellow_halftone, key_halftone) if add_halftones else (cyan, magenta, yellow, key)
+            for channel, name in zip(channels, ("cyan", "magenta", "yellow", "key")):
+                channel.save(f"{img_name}_{name}{suffix}.pdf", resolution=300.0)
+        else:
+            processed_img.save(f"{img_name}_CMYK{suffix}.pdf", resolution=300.0)
+            
 def main():
-    window = Tk() # i made a window
-    window.geometry("800x500")
+    window = Tk()
+    window.geometry("500x400")
     window.title("CMYK Helper :D")
-    frame = Frame(window, bg="skyblue", width=750, height=450)
-    frame.pack(padx=0, pady=50)
+    window.configure(bg="#8fffda")
+
     selected_images = []
+    # frame
+    frame = Frame(window, bg="white", padx=20, pady=20)
+    frame.place(relx=0.5, rely=0.5, anchor=CENTER)
 
-
-    no_imgs_label = Label(frame, text="", bg="skyblue")
-    no_imgs_label.pack()
+    # title
+    Label(frame, text="CMYK Helper", font=("Helvetica", 16, "bold"), bg="white").pack(anchor=W)
+    Label(frame, text="Prepare images for screenprinting", font=("Helvetica", 9), fg="gray", bg="white").pack(anchor=W)
     
     def no_options_selected():
         no_imgs_label.config(text="No processing options selected. Please choose at least one option.")
+
+    def toggle_halftone_entry(*args):
+        if whether_to_halftone_var.get():
+            halftone_size_frame.pack(anchor=W, padx=(22, 0), pady=(2, 4))
+        else:
+            halftone_size_frame.pack_forget()
 
     def decide_whether_to_go(selected_images, add_cropmarks, add_halftones, split_channels):
         if not selected_images:
@@ -173,7 +172,7 @@ def main():
             cell_size = int(halftone_size_entry.get()) if whether_to_halftone_var.get() else 10
         except ValueError:
             cell_size = 10
-        no_imgs_label.config(text="Invalid cell size, using default of 10.")
+            no_imgs_label.config(text="Invalid cell size, using default of 10.")
         decide_whether_to_go(
             selected_images,
             bool(whether_to_cropmark_var.get()),
@@ -198,35 +197,50 @@ def main():
             selected_images = []
             no_imgs_label.config(text="No images selected.")
         
-    upload_button = Button(frame, text="Upload Images", command=store_images)
-    upload_button.pack(pady=30)
-    
-    # the options
+    Frame(frame, bg="#e0e0e0", height=1).pack(fill=X, pady=10)  # divider
+
+    # upload 
+
+    upload_button = Button(frame, text="+ Upload Images", command=store_images,
+        bg="#4a90d9", fg="white", relief=FLAT, padx=12, pady=6, cursor="hand2")
+    upload_button.pack(fill=X)
+
+    no_imgs_label = Label(frame, text="No images selected.", font=("Helvetica", 8),
+        fg="gray", bg="white")
+    no_imgs_label.pack(anchor=W, pady=(4, 0))
+
+    Frame(frame, bg="#e0e0e0", height=1).pack(fill=X, pady=10)  # divider
+
+    # options
+    Label(frame, text="Processing Options", font=("Helvetica", 10, "bold"), bg="white").pack(anchor=W, pady=(0,6))
+
     whether_to_cropmark_var = IntVar()
     whether_to_halftone_var = IntVar()
     whether_to_split_var = IntVar()
-    cropmark_checkbox = Checkbutton(frame, bg="skyblue", text="Add Crop Marks", variable=whether_to_cropmark_var)
-    
-    halftone_checkbox = Checkbutton(frame, bg="skyblue", text="Halftone", variable=whether_to_halftone_var)
-    halftone_size_entry = Entry(frame)
-    halftone_size_entry.insert(0, "10")
 
-    def toggle_halftone_entry(*args):
-        if whether_to_halftone_var.get():
-            halftone_size_entry.pack(anchor=W, after=halftone_checkbox)
-        else:
-            halftone_size_entry.pack_forget()
+    check_style = {"bg": "white", "activebackground": "white", "font": ("Helvetica", 10)}
+    cropmark_checkbox = Checkbutton(frame, text="Add Crop Marks", variable=whether_to_cropmark_var, **check_style)
+    halftone_checkbox = Checkbutton(frame, text="Halftone", variable=whether_to_halftone_var, **check_style)
+    halftone_size_frame = Frame(frame, bg="white")
+    Label(halftone_size_frame, text="Cell size:", font=("Helvetica", 9), fg="gray", bg="white").pack(side=LEFT)
+
+    halftone_size_entry = Entry(halftone_size_frame, width=5, relief=SOLID)
+    halftone_size_entry.insert(0, "10")
+    halftone_size_entry.pack(side=LEFT, padx=(4,0))
+
+    split_checkbox = Checkbutton(frame, text="Split into Channels", variable=whether_to_split_var, **check_style)
+    cropmark_checkbox.pack(anchor=W)
+    halftone_checkbox.pack(anchor=W)
 
     whether_to_halftone_var.trace_add("write", toggle_halftone_entry)
 
-    split_checkbox = Checkbutton(frame, bg="skyblue", text="Split into Channels", variable=whether_to_split_var)
-
-    cropmark_checkbox.pack(anchor=W)
-    halftone_checkbox.pack(anchor=W)
     split_checkbox.pack(anchor=W)
 
-    go_button = Button(frame, text="Go", command=on_go)
-    go_button.pack(pady=10)
+    Frame(frame, bg="#e0e0e0", height=1).pack(fill=X, pady=10)  # divider
+
+    go_button = Button(frame, text="Go", command=on_go,
+        bg="#2ecc71", fg="white", relief=FLAT, padx=12, pady=6, cursor="hand2", font=("Helvetica", 10, "bold"))
+    go_button.pack(fill=X)
     window.mainloop() # i can open it now. im scared.
 
 if __name__ == "__main__":
